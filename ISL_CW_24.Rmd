@@ -1,0 +1,201 @@
+---
+title: "ISL_CW_24"
+author: "Luyuan Wang"
+date: "2024-02-18"
+output: html_document
+---
+
+happiness index.
+Reasons for the choice of data:
+Personal Interest: 
+Reference for policy-making decisions for governments, organizations and civil society.
+proclaimed on 3.20 of the year to be aligned with the International Day of Happiness.
+
+```{r data preparation}
+setwd("C:/Users/Luyuan Wang/Documents/R")
+H_index <- read.csv("WHR2023.csv")
+
+row.names(H_index) <- H_index[,1]
+
+# omit rows with NA
+new_H_index <- na.omit(H_index)
+```
+
+```{r}
+# read the Asian and European country list and select from the H_index data frame
+setwd("C:/Users/Luyuan Wang/Documents/R")
+asia_euro <- read.csv("asia_euro.csv")
+c_list <- asia_euro[,1]
+c_list <- c_list[duplicated(c_list)==FALSE]
+# row.names(H_index) <- H_index[,1]
+new_H_index <- H_index[c_list, ]
+
+# the index for Asia
+asia <- read.csv("asia.csv")
+a_list <- asia[,1]
+a_list <- a_list[duplicated(a_list)==FALSE]
+a_H_index <- new_H_index[a_list, ]
+
+# the index for Europe
+eu <- read.csv("europe.csv")
+eu_list <- eu[,1]
+eu_list <- eu_list[duplicated(eu_list)==FALSE]
+eu_H_index <- new_H_index[eu_list, ]
+```
+
+```{r}
+new_H_index <- na.omit(new_H_index)
+config_x <- new_H_index[, 2:8]
+config_x <- na.omit(config_x)
+```
+
+```{r implement mdscale}
+# as distance object
+dist_H <- dist(config_x[, 2:7], method="euclidean")
+
+# perform mds
+fit_H <- cmdscale(dist_H, eig=TRUE, k=2)
+
+# criteria of judging the number of dimensions at: https://onlinelibrary.wiley.com/doi/epdf/10.1002/bimj.4710240520?saml_referrer
+eigs <- fit_H$eig
+print(sum((eigs[1:2])^2)/sum((eigs)^2))  # 0.999996
+
+#extract (x, y) coordinates of multidimensional scaling
+x <- fit_H$points[,1]
+y <- fit_H$points[,2]
+```
+Observation: where elements of groups have overlapping names
+visualize their ladder score by groups
+indeed, similar scores with range (TBA)
+
+```{r plots}
+#create scatter plot
+plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",
+     main="Multidimensional Scaling Results of Ladder Score", type="n")
+
+#add row names of data frame as labels
+text(x, y, labels=row.names(config_x), cex=0.4)
+
+#create scatter plot using ladder score
+plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2",
+     main="Strtified Ladder Score Distribution", type="n")
+text(x, y, labels=new_H_index[, "Ladder.score"], cex=0.4)
+
+# borders
+abline(a=-1.55, b=-3/10, lty=2, col=1)
+abline(a=-0.1, b=-7/40, lty=2, col=2)
+abline(a=0.9, b=-7/40, lty=2, col=3)
+abline(a=2, b=-3/20, lty=2, col=4)
+abline(a=4, b=-1/5, lty=2, col=5)
+```
+
+
+```{r}
+# in terms of closeness, hand-pick
+```
+
+```{r, visualizing ladder scores of overlapping areas}
+
+library("ggplot2")
+
+# construct dataframe for ggplot
+l_score <- as.data.frame(cbind(new_H_index[,1], config_x[,"Ladder.score"]))
+colnames(l_score) <- c("Country.name", "Ladder.score")
+
+g_1 <- group(x_cor=c(-5, -1.5), y_cor=c(-0.5, -0.35), x, y)
+g1_p <- ggplot(data = l_score[g_1, ], aes(x = Country.name, y = Ladder.score)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_text(aes(label = Ladder.score), vjust=1.6, 
+            color="black", size=2.5)
+
+# Horizontal bar plot
+g1_p + coord_flip()
+
+# europe
+g_2 <- group(x_cor=c(-1, 1), y_cor=c(0.3, 0.5), x, y)
+g2_p <- ggplot(data = l_score[g_1, ], aes(x = Country.name, y = Ladder.score)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_text(aes(label = Ladder.score), vjust=1.6, 
+            color="black", size=2.5)
+
+# Horizontal bar plot
+g2_p + coord_flip()
+
+
+g_3 <- group(x_cor=c(-3, 0), y_cor=c(-0.1, 0.05), x, y)
+g3_p <- ggplot(data = l_score[g_1, ], aes(x = Country.name, y = Ladder.score)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_text(aes(label = Ladder.score), vjust=1.6, 
+            color="black", size=2.5)
+
+# Horizontal bar plot
+g3_p + coord_flip()
+
+```
+
+
+Notice the overall score of the region 1 is higher than those of region 2 and 3. Noticing that from Europe and Asia respectively, visualized the average scores across continents.
+
+What makes European happier.
+```{r ,average of europe compared with that of asia}
+
+avr_a <- round(mean(a_H_index[,"Ladder.score"], na.rm=TRUE), 2) 
+avr_eu <- round(mean(eu_H_index[,"Ladder.score"]), 2)
+
+barplot(c(avr_a, avr_eu), names.arg=c("Asia","Europe"), col="blue", xlab="Continent", ylab="Average Ladder Score", main="The average ladder score of Asia and Europe in 2023", ylim=c(0,7))
+text(x=c(0.7,1.9), y=c(5.15,6.25), label=c(avr_a, avr_eu), pos = 3, cex = 0.8, col = "black")
+```
+## Grouping functions
+```{r function to extract the elemts}
+group <- function(x_cor, y_cor, x, y){
+  x_index <- c()
+  index_vec <- c()
+  for (i in 1:length(x)) {
+    if(x[i] > x_cor[1] & x[i] < x_cor[2]){
+     x_index <- append(x_index, i)
+    }
+  }
+  for (i in x_index){
+    if(y[i] > y_cor[1] & y[i] < y_cor[2]){
+      index_vec <- append(index_vec, i)
+    }
+  }
+  return(index_vec)
+}
+```
+
+```{r}
+
+# g_1
+abline(v=-5, lty=2, col=3)
+abline(v=-1.5, lty=2, col=3)
+abline(h=-0.5, lty=2, col=3)
+abline(h=-0.35, lty=2, col=3)
+
+# g_2
+abline(v=-1, lty=2, col=2)
+abline(v=1, lty=2, col=2)
+abline(h=0.3, lty=2, col=2)
+abline(h=0.5, lty=2, col=2)
+
+# g_3
+abline(v=-3, lty=2, col=4)
+abline(v=0, lty=2, col=4)
+abline(h=-0.1, lty=2, col=4)
+abline(h=0.05, lty=2, col=4)
+```
+
+```{r}
+# omit rows with NA
+new_H_index <- na.omit(new_H_index)
+
+# delete the row of Palestine
+# H_index <- H_index[-c(H_index[,1]=='State of Palestine'),]
+```
+
+```{r plots of eigenvalues of fit_H}
+eigs <- fit_H$eig
+plot(1:length(eigs), log(abs(eigs)))
+points(1:37, log(abs(eigs[1:37])), col=1)
+points(38: length(eigs), log(abs(eigs[38:length(eigs)])), col=4)
+```
